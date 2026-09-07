@@ -58,14 +58,17 @@ if (cmd === 'setup') {
     console.log(cmd === 'recent' ? 'nothing written yet' : 'nothing hidden');
   } else {
     const state = (r) => (r.approved === false ? '  [hidden]' : '');
+    // who wrote it, and whether there is an account behind the name
+    const who = (r) =>
+      `${r.name}${r.relation ? ` (${r.relation})` : ''}${r.guest ? ' [no account]' : ''}`;
     for (const r of comments) {
       const kind = r.parent_id ? `reply to #${r.parent_id}` : 'comment';
       console.log(`#${r.id}  ${kind}  ${r.page}  ${new Date(r.created_at).toLocaleString()}${state(r)}`);
-      console.log(`  ${r.name}: ${bar(r.body)}\n`);
+      console.log(`  ${who(r)}: ${bar(r.body)}\n`);
     }
     for (const r of testimonials) {
       console.log(`T#${r.id}  vouch  ${r.page}  ${new Date(r.created_at).toLocaleString()}${state(r)}`);
-      console.log(`  ${r.name} (${r.relation}): ${bar(r.body)}\n`);
+      console.log(`  ${who(r)}: ${bar(r.body)}\n`);
     }
     console.log(
       `${comments.length} comments, ${testimonials.length} vouches.\n` +

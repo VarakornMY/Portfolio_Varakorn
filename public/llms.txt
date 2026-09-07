@@ -3,6 +3,7 @@
 > Varakorn is a Full Stack AI Engineer and AI Digital Marketing specialist based in Subang Jaya, Selangor, Malaysia. He works as an AI Specialist at P10X Media in Sunway, Subang Jaya, founded the automation studio Orion Automation, and spent two years as a content creator at HYGR where his videos passed 38 million views. He builds AI workflows, agentic AI systems, retrieval pipelines and AI video editing pipelines, mostly in Python, FastAPI, Langchain and React.
 
 Contact: varakornm0403@gmail.com · WhatsApp +60 11 1126 7609 · https://www.linkedin.com/in/varakorn-meunukdomn
+Socials: GitHub https://github.com/VarakornMY · TikTok https://www.tiktok.com/@varakorn_aiengineer · YouTube https://www.youtube.com/@varakorn_my · Instagram https://www.instagram.com/_kazumi.v_ · Orion Automation https://www.orionautomation.xyz/
 
 ## Pages
 

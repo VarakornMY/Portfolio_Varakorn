@@ -237,6 +237,73 @@
   max-width: 22rem;
 }
 
+/* ---------- writing without an account ----------
+   Two boxes stand in for a profile: who wrote this, and how they know him.
+   Side by side where there is room, stacked where there is not. */
+.gb-who {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+}
+
+.gb-who .gb-input--short {
+  max-width: none;
+}
+
+.gb-sheet .ad-label {
+  display: block;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  font-weight: 600;
+  margin-bottom: 0;
+}
+
+/* The honeypot. Parked off screen rather than under display:none, because a
+   bot that knows to skip hidden fields still fills this one in. Nothing in it
+   is meant for a person, so it stays out of the tab order and, via
+   aria-hidden on the wrapper, out of the accessibility tree. */
+.gb-hp {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+/* a guest's relation, worn where an account would wear its title */
+.gb-rel {
+  font-size: 0.72rem;
+  color: var(--ink-3);
+  padding: 0.05rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.gb-sheet-note {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--ink-3);
+}
+
+/* a button that reads as a link, for the quiet offer of an account */
+.gb-linkish {
+  font: inherit;
+  color: var(--red);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.gb-linkish:hover {
+  color: var(--ink);
+}
+
 .gb-sheet .gb-area {
   min-height: 104px;
 }

@@ -1,8 +1,11 @@
 // ---------------------------------------------------------------------------
 // Guestbook comments: one level of replies, likes, published as written.
-// Identity is the site wide Supabase session (Google or email, via authui).
-// Talks to /api/comments and /api/like with a Bearer token. One mount per
-// page; experience pages pass their pathname, the blog reader /blog#<slug>.
+// Signing in is optional and being anonymous is not: a visitor with a
+// Supabase session (Google or email, via authui) writes under their account,
+// and everybody else writes under a name and a relation they give on the
+// spot. Talks to /api/comments and /api/like, with a Bearer token when there
+// is one. One mount per page; experience pages pass their pathname, the blog
+// reader /blog#<slug>.
 // Styling lives in src/styles/comments.css.
 // ---------------------------------------------------------------------------
 import { authConfigured, userOf, onAuth, authedFetch, signOut } from './supa.js';
@@ -35,6 +38,33 @@ const post = (url, body) =>
     body: JSON.stringify(body),
   });
 
+/* the server writes its complaints in lower case, mid sentence style */
+const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+
+/* ---------- the two boxes a guest fills, and the one a bot fills ----------
+   Name and relation are what turn an anonymous comment into somebody's. The
+   third field is a honeypot: a person never sees it, a bot fills it in
+   because it fills everything in, and the server answers a cheerful ok while
+   writing nothing. It sits off screen rather than under display:none, which
+   some bots know to skip. */
+const guestFields = (id) => `
+  <div class="gb-who">
+    <div class="gb-field">
+      <label class="ad-label" for="${id}-name">Your name</label>
+      <input class="gb-input gb-input--short" id="${id}-name" name="name" maxlength="60"
+             required autocomplete="name" placeholder="What should he call you?" />
+    </div>
+    <div class="gb-field">
+      <label class="ad-label" for="${id}-rel">How you know Varakorn</label>
+      <input class="gb-input gb-input--short" id="${id}-rel" name="relation" maxlength="80"
+             required placeholder="Teammate, client, classmate, a reader…" />
+    </div>
+  </div>
+  <div class="gb-hp" aria-hidden="true">
+    <label for="${id}-web">Leave this one empty</label>
+    <input id="${id}-web" name="website" type="text" tabindex="-1" autocomplete="off" />
+  </div>`;
+
 /* ---------- rendering ---------- */
 
 const avatar = (c) =>
@@ -62,13 +92,14 @@ function noteHtml(c, signedIn, people, isReply = false, admin = false) {
       <div class="gb-note-head">
         <button class="gb-name gb-name--btn" type="button" data-pc="${pid}"
                 title="View profile">${avatar(c)}${esc(c.name)}</button>
+        ${c.guest && c.title ? `<span class="gb-rel">${esc(c.title)}</span>` : ''}
         <span class="gb-date">${esc(fmtDate(c.created_at))}</span>
         ${hidden ? `<span class="gb-wait">${c.mine && !admin ? 'only you can see this' : 'hidden from the site'}</span>` : ''}
       </div>
       <p class="gb-body">${esc(c.body)}</p>
       <div class="gb-note-foot">
         ${likeBtn(c, signedIn)}
-        ${!isReply && signedIn ? `<button class="gb-reply-btn" type="button" data-reply="${c.id}">Reply</button>` : ''}
+        ${!isReply ? `<button class="gb-reply-btn" type="button" data-reply="${c.id}">Reply</button>` : ''}
         ${c.mine ? `<button class="gb-mini" type="button" data-edit="${c.id}">Edit</button>` : ''}
         ${
           admin && !c.mine
@@ -98,7 +129,7 @@ export function mountComments(host, page, { title } = {}) {
 
   host.innerHTML = `
     ${title ? `<h3 class="gb-title">${esc(title)}</h3>` : ''}
-    <p class="gb-intro">Say hi, ask something, leave a thought. It shows up the moment you leave it.</p>
+    <p class="gb-intro">Say hi, ask something, leave a thought. No account needed, just a name and how you know him. It shows up the moment you leave it.</p>
     <div class="gb-list-wrap">
       <p class="gb-count" hidden></p>
       <ul class="gb-list"></ul>
@@ -127,9 +158,10 @@ export function mountComments(host, page, { title } = {}) {
       .join('');
   }
 
-  function replyFormHtml() {
+  function replyFormHtml(id) {
     return `
-      <form class="gb-form gb-form--reply" novalidate>
+      <form class="gb-form gb-form--reply" novalidate data-born="${Date.now()}">
+        ${user ? '' : guestFields('r' + id)}
         <textarea class="gb-input gb-area" name="body" maxlength="2000" rows="3" required
                   placeholder="Write a reply"></textarea>
         <div class="gb-actions">
@@ -146,16 +178,35 @@ export function mountComments(host, page, { title } = {}) {
       return;
     }
     if (user === null) {
-      if (!authConfigured) {
-        el.auth.innerHTML = `<p class="gb-offline">Sign in is being set up. Check back soon.</p>`;
-        return;
-      }
-      el.auth.innerHTML = `<button class="btn gb-signin" type="button">Sign in to comment</button>`;
-      el.auth.querySelector('.gb-signin').addEventListener('click', () => openAuthDialog());
+      // no account needed, but no anonymous words either: the name and the
+      // relation are what let Varakorn know who left this and how they met
+      el.auth.innerHTML = `
+        <form class="gb-form gb-sheet" novalidate data-born="${Date.now()}">
+          <p class="gb-sheet-head">
+            <span class="gb-sheet-for">Your comment on <strong>${esc(pageLabel(page))}</strong></span>
+          </p>
+          ${guestFields('gb')}
+          <div class="gb-field">
+            <label class="ad-label" for="gb-body">Your comment</label>
+            <textarea class="gb-input gb-area" id="gb-body" name="body" maxlength="2000" rows="4" required
+                      placeholder="Leave a thought, a question, or just say hi"></textarea>
+          </div>
+          <div class="gb-actions">
+            <button class="btn gb-submit" type="submit">Leave a comment</button>
+            <p class="gb-status" role="status" aria-live="polite"></p>
+          </div>
+          ${
+            authConfigured
+              ? `<p class="gb-sheet-note">No account needed.
+                   <button class="gb-linkish gb-signin" type="button">Sign in</button>
+                   if you would rather keep your words together and edit them later.</p>`
+              : ''
+          }
+        </form>`;
       return;
     }
     el.auth.innerHTML = `
-      <form class="gb-form gb-sheet" novalidate>
+      <form class="gb-form gb-sheet" novalidate data-born="${Date.now()}">
         <div class="gb-me">
           <span class="gb-name">${avatar(user)}${esc(user.name)}</span>
           <button class="gb-signout" type="button">Sign out</button>
@@ -186,11 +237,19 @@ export function mountComments(host, page, { title } = {}) {
     const area = form.querySelector('[name="body"]');
     const body = area.value.trim();
     if (!body) return say(form, 'Write something first.', 'err');
+
+    const asGuest = !user;
+    const name = form.querySelector('[name="name"]')?.value.trim() || '';
+    const relation = form.querySelector('[name="relation"]')?.value.trim() || '';
+    if (asGuest && !name) return say(form, 'Leave a name first, so he knows who wrote this.', 'err');
+    if (asGuest && !relation) return say(form, 'Say how you know him first.', 'err');
+
     if (parent == null) {
       const sure = await askConfirm({
         title: `Leave this comment on ${pageLabel(page)}?`,
-        message:
-          'It goes up straight away, under your name. You can edit or delete it any time, and leave one on other chapters and notes too.',
+        message: asGuest
+          ? `It goes up straight away, under the name you gave. Without an account there is no way to prove it was yours later, so only Varakorn can take it down. Sign in instead if you want to edit or remove it yourself.`
+          : 'It goes up straight away, under your name. You can edit or delete it any time, and leave one on other chapters and notes too.',
         yes: 'Yes, leave it',
       });
       if (!sure) return;
@@ -199,20 +258,36 @@ export function mountComments(host, page, { title } = {}) {
     btn.disabled = true;
     say(form, 'Sending…');
     try {
-      await post('/api/comments', { page, body, parent });
+      await post('/api/comments', {
+        page,
+        body,
+        parent,
+        // the name and the relation stay in the boxes afterwards, so a second
+        // thought on another page does not mean typing them out again
+        ...(asGuest
+          ? {
+              name,
+              relation,
+              hp: form.querySelector('[name="website"]')?.value || '',
+              dwell: Date.now() - Number(form.dataset.born || 0),
+            }
+          : {}),
+      });
       area.value = '';
       say(form, 'Thank you. It is up.', 'ok');
       refresh();
     } catch (e) {
-      if (e.status === 401) {
+      if (e.status === 401 && !asGuest) {
         say(form, 'Your session expired. Sign in again.', 'err');
         openAuthDialog();
       } else {
         say(
           form,
           e.status === 429
-            ? 'That is five in an hour, the limit. Come back a little later.'
-            : 'That did not go through. Try again in a moment.',
+            ? cap(e.message) || 'That is the limit for now. Come back a little later.'
+            : e.status === 400 && e.message
+              ? cap(e.message)
+              : 'That did not go through. Try again in a moment.',
           'err'
         );
       }
@@ -258,14 +333,14 @@ export function mountComments(host, page, { title } = {}) {
     }
 
     const replyBtn = e.target.closest('[data-reply]');
-    if (replyBtn && user) {
+    if (replyBtn) {
       const note = replyBtn.closest('.gb-note');
       const slot = note.querySelector('.gb-reply-slot');
       if (slot.innerHTML) {
         slot.innerHTML = '';
       } else {
         host.querySelectorAll('.gb-reply-slot').forEach((s) => (s.innerHTML = ''));
-        slot.innerHTML = replyFormHtml();
+        slot.innerHTML = replyFormHtml(replyBtn.dataset.reply);
         slot.querySelector('textarea').focus();
       }
       return;
@@ -340,6 +415,11 @@ export function mountComments(host, page, { title } = {}) {
       } catch {
         delBtn.disabled = false;
       }
+      return;
+    }
+
+    if (e.target.closest('.gb-signin')) {
+      openAuthDialog();
       return;
     }
 

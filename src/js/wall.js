@@ -35,6 +35,9 @@ const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const chapters = experience.filter((x) => x.page);
 
 let composeEl = null;
+/* buildCompose hands this back so openCompose can tell the sheet, once it
+   knows, whether the person at the keyboard is signed in or a guest. */
+let setComposeGuest = () => {};
 
 /* one chip per place, and a visitor may light up as many as they like */
 const chip = (page, label) => `
@@ -76,10 +79,19 @@ function buildCompose() {
       <form class="wcompose-form" novalidate>
         <p class="ad-label" id="wc-where">Where it goes <span class="wcompose-hint">pick one or more</span></p>
         <div class="wcompose-places" role="group" aria-labelledby="wc-where" data-wc-places></div>
+        <div data-wc-who hidden>
+          <label class="ad-label" for="wc-name">Your name</label>
+          <input class="acct-input" id="wc-name" name="name" maxlength="60"
+                 autocomplete="name" placeholder="What should he call you?" />
+        </div>
         <div data-wc-rel hidden>
           <label class="ad-label" for="wc-rel">How you know Varakorn</label>
           <input class="acct-input" id="wc-rel" name="relation" maxlength="80"
                  placeholder="Teammate, client, classmate…" />
+        </div>
+        <div class="gb-hp" aria-hidden="true">
+          <label for="wc-web">Leave this one empty</label>
+          <input id="wc-web" name="website" type="text" tabindex="-1" autocomplete="off" />
         </div>
         <label class="ad-label" for="wc-body">Your words</label>
         <textarea class="acct-input acct-area" id="wc-body" name="body" maxlength="2000" rows="4" required
@@ -92,9 +104,10 @@ function buildCompose() {
     </div>`;
   document.body.appendChild(composeEl);
 
-  const state = { kind: 'comment', picked: new Set() };
+  const state = { kind: 'comment', picked: new Set(), guest: true };
   const places = composeEl.querySelector('[data-wc-places]');
   const relRow = composeEl.querySelector('[data-wc-rel]');
+  const whoRow = composeEl.querySelector('[data-wc-who]');
   const sub = composeEl.querySelector('[data-wc-sub]');
   const status = composeEl.querySelector('[data-wc-status]');
   const say = (msg, tone = '') => {
@@ -128,7 +141,9 @@ function buildCompose() {
     }
     places.innerHTML = placesHtml(kind);
     paintPicks();
-    relRow.hidden = kind !== 'vouch';
+    // a vouch always asks how you know him; a guest is asked on a comment too,
+    // because it is the only thing telling Varakorn who just wrote to him
+    relRow.hidden = kind !== 'vouch' && !state.guest;
     sub.textContent =
       kind === 'vouch'
         ? 'For people who worked with him: pick every chapter you shared with him.'
@@ -136,6 +151,14 @@ function buildCompose() {
     say('');
   };
   applyKind('comment');
+
+  /* Called on every open, once the session is known. Signed in, the name comes
+     off the account and the box stays away. */
+  setComposeGuest = (guest) => {
+    state.guest = guest;
+    whoRow.hidden = !guest;
+    relRow.hidden = state.kind !== 'vouch' && !guest;
+  };
 
   // opened while standing on a chapter or a note? that page is already picked
   const here = location.pathname.replace(/[.]html$/, '');
@@ -166,27 +189,35 @@ function buildCompose() {
     e.preventDefault();
     const body = composeEl.querySelector('[name="body"]').value.trim();
     const relation = composeEl.querySelector('[name="relation"]').value.trim();
+    const name = composeEl.querySelector('[name="name"]').value.trim();
     const pages = [...state.picked];
     const label = listNames(pickedNames());
     if (!pages.length) return say('Pick where it goes first.', 'err');
     if (!body) return say('Write something first.', 'err');
-    if (state.kind === 'vouch' && !relation) return say('Say how you know him first.', 'err');
+    if (state.guest && !name) return say('Leave a name first, so he knows who wrote this.', 'err');
+    if ((state.kind === 'vouch' || state.guest) && !relation)
+      return say('Say how you know him first.', 'err');
 
-    // auth loads only when someone actually tries to post
-    const { getSession, authedFetch } = await import('./supa.js');
-    if (!(await getSession())) {
-      const { openAuthDialog } = await import('./authui.js');
-      say('Sign in first, then your words go through.', 'err');
-      openAuthDialog();
-      return;
-    }
+    // the api client loads only when someone actually tries to post; without a
+    // session it simply sends no token, and the name above stands in
+    const { authedFetch } = await import('./supa.js');
+    const guestExtras = state.guest
+      ? {
+          name,
+          relation,
+          hp: composeEl.querySelector('[name="website"]').value || '',
+          dwell: Date.now() - Number(composeEl.dataset.born || 0),
+        }
+      : {};
 
     const many = pages.length > 1;
     const sure = await askConfirm({
       title: `Leave this ${state.kind} on ${label}?`,
       message:
         (many ? `The same words go on all ${pages.length} of them. Each one goes up` : 'It goes up') +
-        ' straight away, and you can edit or delete any of them later from your account page.',
+        (state.guest
+          ? ' straight away, under the name you gave. Without an account they are not yours to edit afterwards, only Varakorn can take them down.'
+          : ' straight away, and you can edit or delete any of them later from your account page.'),
       yes: 'Yes, leave it',
     });
     if (!sure) return;
@@ -203,12 +234,12 @@ function buildCompose() {
             ? await authedFetch('/api/testimonials', {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ page, relation, body }),
+                body: JSON.stringify({ page, relation, body, ...guestExtras }),
               })
             : await authedFetch('/api/comments', {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ page, body }),
+                body: JSON.stringify({ page, body, ...guestExtras }),
               });
         const out = await r.json();
         if (!r.ok) throw new Error(out.error || 'error');
@@ -232,8 +263,14 @@ function buildCompose() {
   return composeEl;
 }
 
-function openCompose() {
-  buildCompose().classList.add('is-open');
+async function openCompose() {
+  const el = buildCompose();
+  el.dataset.born = String(Date.now());
+  el.classList.add('is-open');
+  // the sheet opens straight away and adjusts a moment later, rather than
+  // making somebody wait on the auth client before they can start writing
+  const { getSession } = await import('./supa.js');
+  setComposeGuest(!(await getSession()));
 }
 
 function cardInner(item, pid) {
@@ -306,7 +343,7 @@ export function mountWall(section) {
                  style="--rot:1.6deg; --dur:8s; --delay:-3s">
           <span class="wcompose-pen" aria-hidden="true">✎</span>
           <span class="wcard-body">${items.length ? 'Leave yours here' : 'No words yet. Leave the first one.'}</span>
-          <span class="wcard-hintline">a comment, or a vouch if you worked with him</span>
+          <span class="wcard-hintline">a comment, or a vouch if you worked with him. No account needed</span>
         </button>`;
       section.hidden = false;
 

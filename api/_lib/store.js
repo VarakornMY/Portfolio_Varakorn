@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// The account era store: profiles, comments with one reply level,
+// The store: profiles, comments with one reply level,
 // likes, testimonials, hanko passport stamps, blog reading marks, and desk
 // terminal chat history. Talks to Supabase Postgres (Singapore) through the
 // transaction pooler; identity comes from api/_lib/supauth.js as a uuid.
@@ -12,11 +12,15 @@ import { experience, posts } from '../../src/js/data.js';
 
 const BODY_MAX = 2000;
 const RELATION_MAX = 80;
+const NAME_MAX = 60;
 const RATE_WINDOW = '1 hour';
-const RATE_MAX = 5; // comments + vouches per person per window
+const RATE_MAX = 5; // comments + vouches per account per window
+const RATE_MAX_GUEST = 3; // and per guest, counted by hashed ip
+const MIN_DWELL_MS = 3000; // nobody writes a real thought faster than this
 const CHAT_KEEP = 60; // stored turns per user
 
-/* Only pages that actually mount the guestbook. */
+/* Only pages that actually mount the guestbook. The shape is checked first
+   because it is cheap, then membership below, against the real list. */
 const PAGE_RE = /^\/(experience\/[a-z0-9-]{1,64}|blog#[a-z0-9-]{1,64})$/;
 
 /* The passport: one stamp per experience chapter. Derived from data.js so a
@@ -24,6 +28,25 @@ const PAGE_RE = /^\/(experience\/[a-z0-9-]{1,64}|blog#[a-z0-9-]{1,64})$/;
 const STAMPS = new Set(experience.filter((x) => x.page).map((x) => x.page));
 const SLUGS = new Set(posts.map((p) => p.slug));
 const EXP_PAGE_RE = /^\/experience\/[a-z0-9-]{1,64}$/;
+
+/* Every place that can actually hold words, taken from data.js: the six
+   experience chapters and the blog notes. Matching the shape was enough while
+   writing needed an account and a nonsense slug only wasted the writer's own
+   time. Now that anybody can write, a slug that no page reads back would be a
+   quiet place to pile rows up, so the key has to name a real page. */
+const KNOWN_PAGES = new Set([...STAMPS, ...[...SLUGS].map((slug) => '/blog#' + slug)]);
+
+const requirePage = (page) => {
+  const key = String(page || '');
+  if (!PAGE_RE.test(key) || !KNOWN_PAGES.has(key)) throw err(400, 'unknown page');
+  return key;
+};
+
+const requireExpPage = (page) => {
+  const key = String(page || '');
+  if (!EXP_PAGE_RE.test(key) || !STAMPS.has(key)) throw err(400, 'unknown page');
+  return key;
+};
 
 /* strip control characters except newline and tab */
 const CTRL_RE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
@@ -53,7 +76,8 @@ const DDL = [
   `create table if not exists comments (
     id bigint generated always as identity primary key,
     page text not null,
-    user_id uuid not null references profiles(id) on delete cascade,
+    user_id uuid references profiles(id) on delete cascade,
+    guest_name text, guest_relation text,
     parent_id bigint references comments(id) on delete cascade,
     body text not null, approved boolean not null default true,
     ip_hash text, created_at timestamptz not null default now())`,
@@ -68,10 +92,11 @@ const DDL = [
   `alter table likes enable row level security`,
   `create table if not exists testimonials (
     id bigint generated always as identity primary key,
-    user_id uuid not null references profiles(id) on delete cascade,
+    user_id uuid references profiles(id) on delete cascade,
+    guest_name text,
     page text not null, relation text not null, body text not null,
     approved boolean not null default true,
-    created_at timestamptz not null default now(),
+    ip_hash text, created_at timestamptz not null default now(),
     unique (user_id, page))`,
   `alter table testimonials enable row level security`,
   `create index if not exists testimonials_page_idx on testimonials (page, approved, created_at desc)`,
@@ -79,6 +104,28 @@ const DDL = [
      as the switch that takes something down again, it just starts on. */
   `alter table comments alter column approved set default true`,
   `alter table testimonials alter column approved set default true`,
+  /* 7 Sep 2026: signing in became optional. The author column loosens and the
+     guest fields arrive; a name of some kind is still not optional. */
+  `alter table comments alter column user_id drop not null`,
+  `alter table testimonials alter column user_id drop not null`,
+  `alter table comments add column if not exists guest_name text`,
+  `alter table comments add column if not exists guest_relation text`,
+  `alter table testimonials add column if not exists guest_name text`,
+  `alter table testimonials add column if not exists ip_hash text`,
+  /* the hourly cap counts a guest by hashed ip, so these wait for the columns
+     above: on an existing install ip_hash arrives one statement earlier */
+  `create index if not exists comments_ip_recent_idx on comments (ip_hash, created_at desc)`,
+  `create index if not exists testimonials_ip_recent_idx on testimonials (ip_hash, created_at desc)`,
+  `do $$ begin
+     if not exists (select 1 from pg_constraint where conname = 'comments_author_ck') then
+       alter table comments add constraint comments_author_ck
+         check (user_id is not null or guest_name is not null);
+     end if;
+     if not exists (select 1 from pg_constraint where conname = 'testimonials_author_ck') then
+       alter table testimonials add constraint testimonials_author_ck
+         check (user_id is not null or guest_name is not null);
+     end if;
+   end $$`,
   `create table if not exists stamps (
     user_id uuid not null references profiles(id) on delete cascade,
     stamp text not null, created_at timestamptz not null default now(),
@@ -102,14 +149,20 @@ export async function ensureSchema(sql) {
   for (const stmt of DDL) await sql.unsafe(stmt);
 }
 
-const isMissingTable = (e) =>
-  e?.code === '42P01' || /relation "\w+" does not exist/.test(e?.message || '');
+/* 42P01 is a table that is not there, 42703 a column that is not there. Both
+   mean this deploy is ahead of the database, and both are fixed by running the
+   DDL above, so a release never depends on somebody remembering to migrate. */
+const isMissingSchema = (e) =>
+  e?.code === '42P01' ||
+  e?.code === '42703' ||
+  /relation "\w+" does not exist/.test(e?.message || '') ||
+  /column "\w+" .*does not exist/.test(e?.message || '');
 
 async function withSchema(sql, fn) {
   try {
     return await fn();
   } catch (e) {
-    if (!isMissingTable(e)) throw e;
+    if (!isMissingSchema(e)) throw e;
     await ensureSchema(sql);
     return fn();
   }
@@ -119,6 +172,42 @@ function need(env) {
   const sql = db(env);
   if (!sql) throw err(503, 'database is not configured');
   return sql;
+}
+
+/* ---------- who is writing ----------
+   Signing in is optional, being anonymous is not. A visitor with an account
+   is their profile row. Anybody else has to say a name, and on a comment how
+   they know Varakorn, so every set of words on the site has a face to it. */
+
+/** The name a guest gave, validated. Throws rather than let a blank through. */
+function guestName(guest) {
+  const name = clean(guest?.name, NAME_MAX);
+  if (!name || name.length > NAME_MAX)
+    throw err(400, 'leave a name, in ' + NAME_MAX + ' characters or less, so Varakorn knows who wrote this');
+  return name;
+}
+
+/** And how they know him. The vouch form always asked; comments ask now too. */
+function guestRelation(guest) {
+  const relation = clean(guest?.relation, RELATION_MAX);
+  if (!relation || relation.length > RELATION_MAX)
+    throw err(400, 'say how you know Varakorn, in ' + RELATION_MAX + ' characters or less');
+  return relation;
+}
+
+/* Two cheap gates in front of the guest forms, since nothing waits for
+   approval. The honeypot is a field no human ever sees: a bot fills it in
+   because it fills everything in, and gets a cheerful ok while nothing is
+   written, so it never learns to come back. The dwell check is the other
+   half, because nobody reads a page and writes a real thought in three
+   seconds. Both are only as strong as a client that could lie, which is the
+   point: they cost a person nothing and cost a crawler the whole trip. */
+function guestGate({ hp, dwell }) {
+  if (String(hp || '').trim()) return false; // silently swallowed
+  const ms = Number(dwell);
+  if (Number.isFinite(ms) && ms >= 0 && ms < MIN_DWELL_MS)
+    throw err(400, 'That was quick. Take a moment with it and send it again.');
+  return true;
 }
 
 /* ---------- profiles ---------- */
@@ -140,17 +229,24 @@ export async function ensureProfile(user, env = process.env) {
 export async function listComments(page, viewerId, opts = {}, env = process.env) {
   const sql = db(env);
   if (!sql) return { offline: true };
-  if (!PAGE_RE.test(String(page || ''))) throw err(400, 'unknown page');
+  requirePage(page);
   const viewer = viewerId || '00000000-0000-0000-0000-000000000000';
   const admin = Boolean(opts.admin);
+  // left join: a guest has no profile row, so their name and their relation
+  // come off the comment itself. The relation stands in for a title, which is
+  // what the profile card and the home wall already know how to show.
   const rows = await withSchema(sql, () => sql`
     select c.id, c.parent_id, c.body, c.created_at, c.approved,
-      (c.user_id = ${viewer}) as mine,
-      p.name, p.picture, p.title, p.bio, p.links,
+      coalesce(c.user_id = ${viewer}, false) as mine,
+      (c.user_id is null) as guest,
+      coalesce(p.name, c.guest_name) as name,
+      p.picture,
+      coalesce(p.title, c.guest_relation) as title,
+      p.bio, p.links,
       (select count(*)::int from likes l where l.comment_id = c.id) as likes,
       exists(select 1 from likes l where l.comment_id = c.id and l.user_id = ${viewer}) as liked
     from comments c
-    join profiles p on p.id = c.user_id
+    left join profiles p on p.id = c.user_id
     where c.page = ${page} and (c.approved or c.user_id = ${viewer} or ${admin})
     order by c.created_at asc
     limit 500`);
@@ -170,31 +266,56 @@ export async function listComments(page, viewerId, opts = {}, env = process.env)
   return { comments: tops };
 }
 
-/** Comments and vouches share one budget: five in an hour, per person. It is
+/** Comments and vouches share one budget: five in an hour for an account,
+    three for a guest, who is counted by hashed ip instead of by user id. It is
     there to stop a flood, not to slow anybody down. */
-async function guardRate(sql, userId, admin) {
+async function guardRate(sql, { userId, ipHash }, admin) {
   if (admin) return;
-  const [{ n }] = await sql`
-    select (
-      (select count(*) from comments
-        where user_id = ${userId} and created_at > now() - ${RATE_WINDOW}::interval) +
-      (select count(*) from testimonials
-        where user_id = ${userId} and created_at > now() - ${RATE_WINDOW}::interval)
-    )::int as n`;
-  if (n >= RATE_MAX)
-    throw err(429, `You have left ${RATE_MAX} in the last hour, the limit. Come back a little later.`);
+  const max = userId ? RATE_MAX : RATE_MAX_GUEST;
+  const [{ n }] = userId
+    ? await sql`
+        select (
+          (select count(*) from comments
+            where user_id = ${userId} and created_at > now() - ${RATE_WINDOW}::interval) +
+          (select count(*) from testimonials
+            where user_id = ${userId} and created_at > now() - ${RATE_WINDOW}::interval)
+        )::int as n`
+    : await sql`
+        select (
+          (select count(*) from comments
+            where ip_hash = ${ipHash} and created_at > now() - ${RATE_WINDOW}::interval) +
+          (select count(*) from testimonials
+            where ip_hash = ${ipHash} and created_at > now() - ${RATE_WINDOW}::interval)
+        )::int as n`;
+  if (n >= max)
+    throw err(429, `You have left ${max} in the last hour, the limit. Come back a little later.`);
 }
 
-export async function createComment({ page, body, parent, user, ip, admin }, env = process.env) {
+/** `user` is the signed in visitor, or null. A null one has to bring
+    `guest` = { name, relation }, plus the honeypot and the dwell the form
+    collected. Everything past that is the same for both. */
+export async function createComment(
+  { page, body, parent, user, guest, ip, admin, hp, dwell },
+  env = process.env
+) {
   const sql = db(env);
   if (!sql) return { offline: true };
-  if (!PAGE_RE.test(String(page || ''))) throw err(400, 'unknown page');
+  requirePage(page);
 
   const cleanBody = clean(body, BODY_MAX);
   if (!cleanBody || cleanBody.length > BODY_MAX)
     throw err(400, 'comment must be 1 to 2000 characters');
 
-  await ensureProfile(user, env);
+  // the name and the relation are read before anything is touched, so a guest
+  // who left one blank is told so rather than half written into the database
+  const author = user
+    ? { userId: user.id, name: null, relation: null }
+    : { userId: null, name: guestName(guest), relation: guestRelation(guest) };
+
+  if (!user && !guestGate({ hp, dwell })) return { ok: true };
+
+  if (user) await ensureProfile(user, env);
+  const ipHash = hashIp(ip);
   return withSchema(sql, async () => {
     let parentId = null;
     if (parent != null) {
@@ -205,11 +326,12 @@ export async function createComment({ page, body, parent, user, ip, admin }, env
       parentId = rows[0].id;
     }
 
-    await guardRate(sql, user.id, admin);
+    await guardRate(sql, { userId: author.userId, ipHash }, admin);
 
     await sql`
-      insert into comments (page, user_id, parent_id, body, ip_hash)
-      values (${page}, ${user.id}, ${parentId}, ${cleanBody}, ${hashIp(ip)})`;
+      insert into comments (page, user_id, guest_name, guest_relation, parent_id, body, ip_hash)
+      values (${page}, ${author.userId}, ${author.name}, ${author.relation},
+              ${parentId}, ${cleanBody}, ${ipHash})`;
     return { ok: true };
   });
 }
@@ -257,26 +379,33 @@ export async function toggleLike(commentId, user, env = process.env) {
 export async function listTestimonials(page, viewerId, opts = {}, env = process.env) {
   const sql = db(env);
   if (!sql) return { offline: true };
-  if (!EXP_PAGE_RE.test(String(page || ''))) throw err(400, 'unknown page');
+  requireExpPage(page);
   const viewer = viewerId || '00000000-0000-0000-0000-000000000000';
   const admin = Boolean(opts.admin);
   const rows = await withSchema(sql, () => sql`
     select t.id, t.relation, t.body, t.approved, t.created_at,
-           p.name, p.picture, p.title, p.bio, p.links,
-           (t.user_id = ${viewer}) as mine
+           coalesce(p.name, t.guest_name) as name,
+           p.picture, p.title, p.bio, p.links,
+           (t.user_id is null) as guest,
+           coalesce(t.user_id = ${viewer}, false) as mine
     from testimonials t
-    join profiles p on p.id = t.user_id
+    left join profiles p on p.id = t.user_id
     where t.page = ${page} and (t.approved or t.user_id = ${viewer} or ${admin})
     order by t.created_at desc
     limit 100`);
   return { testimonials: rows };
 }
 
-/** One vouch per person per page. Writing again replaces the words in place. */
-export async function saveTestimonial({ page, relation, body, user, admin }, env = process.env) {
+/** One vouch per account per page, rewritten in place on a second go. A guest
+    has no account to hold that to, so theirs is simply added: the unique pair
+    only constrains rows that carry a user_id. */
+export async function saveTestimonial(
+  { page, relation, body, user, guest, ip, admin, hp, dwell },
+  env = process.env
+) {
   const sql = db(env);
   if (!sql) return { offline: true };
-  if (!EXP_PAGE_RE.test(String(page || ''))) throw err(400, 'unknown page');
+  requireExpPage(page);
 
   const cleanRelation = clean(relation, RELATION_MAX);
   const cleanBody = clean(body, BODY_MAX);
@@ -285,14 +414,26 @@ export async function saveTestimonial({ page, relation, body, user, admin }, env
   if (!cleanBody || cleanBody.length > BODY_MAX)
     throw err(400, 'the vouch must be 1 to 2000 characters');
 
-  await ensureProfile(user, env);
+  // the vouch form has always asked how you know him, so a guest only owes a
+  // name on top of what everybody fills in
+  const name = user ? null : guestName(guest);
+  if (!user && !guestGate({ hp, dwell })) return { ok: true };
+
+  if (user) await ensureProfile(user, env);
+  const ipHash = hashIp(ip);
   return withSchema(sql, async () => {
-    await guardRate(sql, user.id, admin);
-    await sql`
-      insert into testimonials (user_id, page, relation, body)
-      values (${user.id}, ${page}, ${cleanRelation}, ${cleanBody})
-      on conflict (user_id, page) do update
-        set relation = excluded.relation, body = excluded.body`;
+    await guardRate(sql, { userId: user?.id || null, ipHash }, admin);
+    if (user) {
+      await sql`
+        insert into testimonials (user_id, page, relation, body, ip_hash)
+        values (${user.id}, ${page}, ${cleanRelation}, ${cleanBody}, ${ipHash})
+        on conflict (user_id, page) do update
+          set relation = excluded.relation, body = excluded.body`;
+    } else {
+      await sql`
+        insert into testimonials (guest_name, page, relation, body, ip_hash)
+        values (${name}, ${page}, ${cleanRelation}, ${cleanBody}, ${ipHash})`;
+    }
     return { ok: true };
   });
 }
@@ -424,12 +565,15 @@ export async function wallItems(env = process.env) {
   return withSchema(sql, async () => {
     const [vouches, comments] = await Promise.all([
       sql`select t.body, t.page, t.relation, t.created_at,
-                 p.name, p.picture, p.title, p.bio, p.links
-          from testimonials t join profiles p on p.id = t.user_id
+                 coalesce(p.name, t.guest_name) as name,
+                 p.picture, p.title, p.bio, p.links
+          from testimonials t left join profiles p on p.id = t.user_id
           where t.approved order by t.created_at desc limit 12`,
       sql`select c.body, c.page, c.created_at,
-                 p.name, p.picture, p.title, p.bio, p.links
-          from comments c join profiles p on p.id = c.user_id
+                 coalesce(p.name, c.guest_name) as name,
+                 p.picture, coalesce(p.title, c.guest_relation) as title,
+                 p.bio, p.links
+          from comments c left join profiles p on p.id = c.user_id
           where c.approved and c.parent_id is null
           order by c.created_at desc limit 12`,
     ]);
@@ -453,12 +597,15 @@ export async function listRecent(limit = 20, env = process.env) {
   const n = Math.min(Math.max(Number(limit) || 20, 1), 200);
   return withSchema(sql, async () => {
     const comments = await sql`
-      select c.id, c.page, c.parent_id, c.body, c.created_at, c.approved, p.name
-      from comments c join profiles p on p.id = c.user_id
+      select c.id, c.page, c.parent_id, c.body, c.created_at, c.approved,
+             coalesce(p.name, c.guest_name) as name,
+             c.guest_relation as relation, (c.user_id is null) as guest
+      from comments c left join profiles p on p.id = c.user_id
       order by c.created_at desc limit ${n}`;
     const testimonials = await sql`
-      select t.id, t.page, t.relation, t.body, t.created_at, t.approved, p.name
-      from testimonials t join profiles p on p.id = t.user_id
+      select t.id, t.page, t.relation, t.body, t.created_at, t.approved,
+             coalesce(p.name, t.guest_name) as name, (t.user_id is null) as guest
+      from testimonials t left join profiles p on p.id = t.user_id
       order by t.created_at desc limit ${n}`;
     return { comments, testimonials };
   });
@@ -469,12 +616,14 @@ export async function listPending(env = process.env) {
   const sql = need(env);
   return withSchema(sql, async () => {
     const comments = await sql`
-      select c.id, c.page, c.parent_id, c.body, c.created_at, p.name
-      from comments c join profiles p on p.id = c.user_id
+      select c.id, c.page, c.parent_id, c.body, c.created_at,
+             coalesce(p.name, c.guest_name) as name, (c.user_id is null) as guest
+      from comments c left join profiles p on p.id = c.user_id
       where not c.approved order by c.created_at asc`;
     const testimonials = await sql`
-      select t.id, t.page, t.relation, t.body, t.created_at, p.name
-      from testimonials t join profiles p on p.id = t.user_id
+      select t.id, t.page, t.relation, t.body, t.created_at,
+             coalesce(p.name, t.guest_name) as name, (t.user_id is null) as guest
+      from testimonials t left join profiles p on p.id = t.user_id
       where not t.approved order by t.created_at asc`;
     return { comments, testimonials };
   });

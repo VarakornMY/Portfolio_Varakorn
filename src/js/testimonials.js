@@ -1,7 +1,10 @@
 // ---------------------------------------------------------------------------
 // Vouches on experience detail pages: people who actually worked with
-// Varakorn sign in and leave one, and it goes up as they write it. They also
-// feed a Review JSON-LD block so answer engines can quote them.
+// Varakorn leave one, and it goes up as they write it. An account is
+// optional, a name is not: signed in it comes from the profile, otherwise
+// they write it in the sheet along with how they know him, which this form
+// has always asked for. They also feed a Review JSON-LD block so answer
+// engines can quote them.
 // Mounted by expDetail.js above the guestbook; styling in comments.css.
 // ---------------------------------------------------------------------------
 import { authConfigured, userOf, onAuth, authedFetch } from './supa.js';
@@ -75,6 +78,14 @@ function injectReviewLd(approved) {
   document.head.appendChild(tag);
 }
 
+/* The honeypot, same trick as the guestbook: off screen, never seen by a
+   person, filled in by a bot, and the server quietly writes nothing. */
+const honeypot = `
+  <div class="gb-hp" aria-hidden="true">
+    <label for="v-web">Leave this one empty</label>
+    <input id="v-web" name="website" type="text" tabindex="-1" autocomplete="off" />
+  </div>`;
+
 export function mountTestimonials(host, page) {
   if (!host || host.dataset.vMounted) return;
   host.dataset.vMounted = '1';
@@ -106,10 +117,19 @@ export function mountTestimonials(host, page) {
 
   function formHtml() {
     return `
-      <form class="gb-form gb-sheet" novalidate>
+      <form class="gb-form gb-sheet" novalidate data-born="${Date.now()}">
         <p class="gb-sheet-head">
           <span class="gb-sheet-for">Your vouch on <strong>${esc(pageLabel(page))}</strong></span>
         </p>
+        ${
+          user
+            ? ''
+            : `<div class="gb-field">
+                 <label class="ad-label" for="v-name">Your name</label>
+                 <input class="gb-input gb-input--short" id="v-name" name="name" maxlength="60"
+                        required autocomplete="name" placeholder="The name he would know you by" />
+               </div>`
+        }
         <div class="gb-field">
           <label class="ad-label" for="v-rel">How you know Varakorn</label>
           <input class="gb-input gb-input--short" id="v-rel" name="relation" maxlength="80" required
@@ -120,40 +140,40 @@ export function mountTestimonials(host, page) {
           <textarea class="gb-input gb-area" id="v-body" name="body" maxlength="2000" rows="4" required
                     placeholder="What was he like to work with?">${esc(mine?.body || '')}</textarea>
         </div>
+        ${user ? '' : honeypot}
         <div class="gb-actions">
           <button class="btn gb-submit" type="submit">${mine ? 'Update my vouch' : 'Leave a vouch'}</button>
           <button class="gb-cancel" type="button" data-v-cancel>Cancel</button>
           <p class="gb-status" role="status" aria-live="polite"></p>
         </div>
-        <p class="vouch-note">It goes up straight away, and you can change or remove it later.</p>
+        <p class="vouch-note">
+          ${
+            user
+              ? 'It goes up straight away, and you can change or remove it later.'
+              : `It goes up straight away. Without an account it is not yours to edit afterwards, so
+                 ${authConfigured ? `<button class="gb-linkish gb-signin" type="button">sign in</button> first if you might want to change it.` : 'write it the way you want it to stand.'}`
+          }
+        </p>
       </form>`;
   }
 
   function renderCta() {
-    if (!authConfigured) {
-      cta.innerHTML = '';
-      return;
-    }
-    if (user && formOpen) {
+    if (formOpen) {
       cta.innerHTML = formHtml();
       cta.querySelector('[data-v-cancel]')?.addEventListener('click', () => {
         formOpen = false;
         renderCta();
       });
-      cta.querySelector('[name="relation"]')?.focus();
+      // a guest starts at their name, everybody else at the first empty box
+      (cta.querySelector('[name="name"]') || cta.querySelector('[name="relation"]'))?.focus();
       return;
     }
     // one quiet, contextual invitation; the form only unfolds on purpose
-    const label = !user
-      ? 'Worked with him? Sign in to vouch'
-      : mine
-        ? 'Edit my vouch'
-        : 'Worked with him? Leave a vouch';
+    const label = mine ? 'Edit my vouch' : 'Worked with him? Leave a vouch';
     cta.innerHTML = `<button class="vouch-open" type="button">
         <span aria-hidden="true">✎</span> ${label}
       </button>`;
     cta.querySelector('.vouch-open').addEventListener('click', () => {
-      if (!user) return openAuthDialog();
       formOpen = true;
       renderCta();
     });
@@ -188,6 +208,10 @@ export function mountTestimonials(host, page) {
   bindProfileClicks(host, people);
 
   host.addEventListener('click', async (e) => {
+    if (e.target.closest('.gb-signin')) {
+      openAuthDialog();
+      return;
+    }
     if (e.target.closest('[data-v-edit]')) {
       formOpen = true;
       renderCta();
@@ -247,7 +271,14 @@ export function mountTestimonials(host, page) {
     e.preventDefault();
     const relation = form.querySelector('[name="relation"]').value.trim();
     const body = form.querySelector('[name="body"]').value.trim();
+    const name = form.querySelector('[name="name"]')?.value.trim() || '';
+    const asGuest = !user;
     const status = form.querySelector('.gb-status');
+    if (asGuest && !name) {
+      status.textContent = 'Leave a name first, so he knows who this is from.';
+      status.dataset.tone = 'err';
+      return;
+    }
     if (!relation || !body) {
       status.textContent = 'Both fields, please.';
       status.dataset.tone = 'err';
@@ -257,7 +288,9 @@ export function mountTestimonials(host, page) {
       title: (mine ? 'Update your vouch on ' : 'Leave your vouch on ') + pageLabel(page) + '?',
       message: mine
         ? 'The new version replaces the old one right away. You can edit or delete it any time.'
-        : 'It goes up straight away, under your name. You can leave one on every chapter you shared with him, and edit or delete this one any time.',
+        : asGuest
+          ? 'It goes up straight away, under the name you gave. Without an account it is not yours to edit or remove afterwards, only Varakorn can take it down.'
+          : 'It goes up straight away, under your name. You can leave one on every chapter you shared with him, and edit or delete this one any time.',
       yes: mine ? 'Yes, update it' : 'Yes, leave it',
     });
     if (!sure) return;
@@ -269,7 +302,18 @@ export function mountTestimonials(host, page) {
       const r = await authedFetch('/api/testimonials', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ page, relation, body }),
+        body: JSON.stringify({
+          page,
+          relation,
+          body,
+          ...(asGuest
+            ? {
+                name,
+                hp: form.querySelector('[name="website"]')?.value || '',
+                dwell: Date.now() - Number(form.dataset.born || 0),
+              }
+            : {}),
+        }),
       });
       const out = await r.json();
       if (!r.ok) throw new Error(out.error || 'error');

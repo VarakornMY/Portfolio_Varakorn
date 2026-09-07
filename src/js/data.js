@@ -54,10 +54,10 @@ export const socials = [
   { id: 'whatsapp', label: 'WhatsApp', href: 'https://wa.me/601111267609' },
   { id: 'email', label: 'Email', href: 'mailto:varakornm0403@gmail.com' },
   { id: 'linkedin', label: 'LinkedIn', href: 'https://www.linkedin.com/in/varakorn-meunukdomn' },
-  { id: 'github', label: 'GitHub', href: 'https://github.com/KazumiGIT' },
-  { id: 'tiktok', label: 'TikTok', href: 'https://www.tiktok.com/@kazumi_v' },
+  { id: 'github', label: 'GitHub', href: 'https://github.com/VarakornMY' },
+  { id: 'tiktok', label: 'TikTok', href: 'https://www.tiktok.com/@varakorn_aiengineer' },
   { id: 'instagram', label: 'Instagram', href: 'https://www.instagram.com/_kazumi.v_' },
-  { id: 'youtube', label: 'YouTube', href: 'https://youtube.com/@kazumi_v' },
+  { id: 'youtube', label: 'YouTube', href: 'https://www.youtube.com/@varakorn_my' },
   { id: 'agency', label: 'Orion Automation', href: 'https://www.orionautomation.xyz/' },
 ];
 
