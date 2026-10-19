@@ -1,4 +1,4 @@
-// Vercel serverless function: everything about the signed in visitor.
+// Shared API handler: everything about the signed in visitor.
 //   GET    /api/me                         -> profile, stamps, reading, own posts
 //   POST   /api/me { stamp }               -> collect a passport stamp
 //   POST   /api/me { read }                -> mark a blog note finished

@@ -1,4 +1,4 @@
-// Vercel serverless function: toggle a like on an approved comment.
+// Shared API handler: toggle a like on an approved comment.
 //   POST /api/like { comment } -> { liked, likes } (signed in only)
 import { toggleLike } from './_lib/store.js';
 import { requireUser } from './_lib/supauth.js';

@@ -5,3 +5,6 @@ dist
 .env
 .vercel
 .shots
+.wrangler
+.dev.vars
+.dev.vars.*

@@ -1,4 +1,4 @@
-// Vercel serverless function: vouches from people who worked with Varakorn.
+// Shared API handler: vouches from people who worked with Varakorn.
 //   GET  /api/testimonials?page=/experience/... -> { testimonials, admin }
 //        (everything showing, plus the caller's own, plus all of it for the owner)
 //   POST /api/testimonials { page, relation, body, name?, hp?, dwell? } -> { ok }

@@ -1,3 +1,4 @@
+import { runtimeEnv } from './runtime.js';
 // ---------------------------------------------------------------------------
 // Who is calling? Supabase Auth owns identity now. The browser holds a
 // Supabase session and sends its access token as a Bearer header; we hand
@@ -12,7 +13,7 @@ const err = (status, message) => Object.assign(new Error(message), { status });
    ADMIN_USER_IDS (comma separated) overrides it if the account ever changes. */
 const OWNER_ID = 'e2328a8b-7861-42f9-acdf-c17734a152f8'; // varakornm0403@gmail.com
 
-export function isAdmin(user, env = process.env) {
+export function isAdmin(user, env = runtimeEnv()) {
   if (!user?.id) return false;
   const ids = String(env.ADMIN_USER_IDS || OWNER_ID)
     .split(',')
@@ -21,7 +22,7 @@ export function isAdmin(user, env = process.env) {
   return ids.includes(user.id);
 }
 
-export const authConfigured = (env = process.env) =>
+export const authConfigured = (env = runtimeEnv()) =>
   Boolean(env.SUPABASE_URL && env.SUPABASE_PUBLISHABLE_KEY);
 
 /** The Bearer token from a request, or null. */
@@ -35,7 +36,7 @@ export function bearerToken(req) {
  * { id, email, name, picture } or null when no token was sent.
  * Throws 401 when a token was sent but is expired or fake.
  */
-export async function userFromRequest(req, env = process.env) {
+export async function userFromRequest(req, env = runtimeEnv()) {
   const token = bearerToken(req);
   if (!token) return null;
   if (!authConfigured(env)) throw err(503, 'sign in is not configured');
@@ -71,7 +72,7 @@ export async function userFromRequest(req, env = process.env) {
 }
 
 /** Like userFromRequest, but a missing token is a 401 too. */
-export async function requireUser(req, env = process.env) {
+export async function requireUser(req, env = runtimeEnv()) {
   const user = await userFromRequest(req, env);
   if (!user) throw err(401, 'sign in first');
   return user;
@@ -81,7 +82,7 @@ export async function requireUser(req, env = process.env) {
  * Permanently delete a Supabase Auth user (admin API, secret key).
  * The profiles cascade wipes comments, likes, stamps, reading and chats.
  */
-export async function deleteAuthUser(userId, env = process.env) {
+export async function deleteAuthUser(userId, env = runtimeEnv()) {
   if (!env.SUPABASE_URL || !env.SUPABASE_SECRET_KEY)
     throw err(503, 'account deletion is not configured');
   const r = await fetch(env.SUPABASE_URL + '/auth/v1/admin/users/' + userId, {

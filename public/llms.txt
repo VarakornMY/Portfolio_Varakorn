@@ -7,6 +7,8 @@ Socials: GitHub https://github.com/VarakornMY · TikTok https://www.tiktok.com/@
 
 ## Pages
 
+- [3D Showcase](https://www.varakorn.me/3d-showcase): an independent Civic Type R FL5 visual study with custom paint, interior viewpoints, window tint, weather and a virtual road cruise. The model is an approximation based on reference dimensions, not manufacturer CAD.
+
 - [Home](https://www.varakorn.me/home): who he is, the services he offers, selected projects including Tendervise AI, and the six chapters of his career in short form.
 - [Journey](https://www.varakorn.me/journey): the full story in six chapters, from an IT certificate in Pasir Salak to AI Specialist at P10X Media.
 - [Experience and goals](https://www.varakorn.me/experience): every role as a card, plus the skill groups and the goals he is working toward.

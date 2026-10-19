@@ -1,4 +1,4 @@
-// Vercel serverless function: the guestbook wall on the home page.
+// Shared API handler: the guestbook wall on the home page.
 //   GET /api/wall -> { items } (approved vouches + comments, newest first)
 // Public and cacheable: the edge holds it for two minutes so the home page
 // never waits on the database twice in a row.

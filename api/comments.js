@@ -1,4 +1,4 @@
-// Vercel serverless function: the public guestbook API.
+// Shared API handler: the public guestbook API.
 //   GET  /api/comments?page=/experience/... -> { comments } (threads + likes)
 //   POST /api/comments { page, body, parent?, name?, relation?, hp?, dwell? }
 //        -> { ok }. Signing in is optional: a caller without a token has to

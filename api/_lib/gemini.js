@@ -1,3 +1,4 @@
+import { runtimeEnv } from './runtime.js';
 // ---------------------------------------------------------------------------
 // Shared Gemini call used by both the Vercel function (api/chat.js) and the
 // Vite dev middleware. Never ships to the browser; the key stays server side.
@@ -12,7 +13,7 @@ const MAX_CHARS = 600;
  * Returns { reply } or { offline: true } when no key is configured.
  * Throws Error with .status for bad requests / upstream failures.
  */
-export async function askVarakornAI(messages, env = process.env) {
+export async function askVarakornAI(messages, env = runtimeEnv()) {
   const key = env.GEMINI_API_KEY;
   if (!key) return { offline: true };
 

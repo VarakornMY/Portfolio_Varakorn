@@ -4,6 +4,7 @@
 /** JSON body: Vercel pre-parses req.body; the dev server streams it. */
 export async function readBody(req) {
   if (req.body !== undefined) return req.body || {};
+  if (req.readJson) return req.readJson().catch(() => ({}));
   const raw = await new Promise((resolve, reject) => {
     let s = '';
     req.on('data', (c) => (s += c));

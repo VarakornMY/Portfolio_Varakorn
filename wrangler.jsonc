@@ -1,0 +1,43 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "portfolio-varakorn",
+  "account_id": "bd55d194fad0c10ac7c13c0ed69173cf",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-10-19",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "html_handling": "drop-trailing-slash",
+    "not_found_handling": "none",
+    "run_worker_first": [
+      "/api",
+      "/api/*"
+    ]
+  },
+  "observability": {
+    "enabled": true
+  },
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "28ac2a2063044bc9b5850bacae023356"
+    }
+  ],
+  "workers_dev": true,
+  "preview_urls": true,
+  "routes": [
+    {
+      "pattern": "www.varakorn.me",
+      "custom_domain": true,
+      "zone_id": "6b498278b357ead401e9d2297e07c366"
+    },
+    {
+      "pattern": "varakorn.me",
+      "custom_domain": true,
+      "zone_id": "6b498278b357ead401e9d2297e07c366"
+    }
+  ]
+}

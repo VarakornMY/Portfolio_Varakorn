@@ -1,3 +1,4 @@
+import { runtimeEnv } from './runtime.js';
 // ---------------------------------------------------------------------------
 // The store: profiles, comments with one reply level,
 // likes, testimonials, hanko passport stamps, blog reading marks, and desk
@@ -213,7 +214,7 @@ function guestGate({ hp, dwell }) {
 /* ---------- profiles ---------- */
 
 /** Mirror a verified Supabase Auth user into profiles. Cheap upsert. */
-export async function ensureProfile(user, env = process.env) {
+export async function ensureProfile(user, env = runtimeEnv()) {
   const sql = need(env);
   await withSchema(sql, () => sql`
     insert into profiles (id, name, picture, title, bio, links)
@@ -226,7 +227,7 @@ export async function ensureProfile(user, env = process.env) {
 
 /* ---------- comments ---------- */
 
-export async function listComments(page, viewerId, opts = {}, env = process.env) {
+export async function listComments(page, viewerId, opts = {}, env = runtimeEnv()) {
   const sql = db(env);
   if (!sql) return { offline: true };
   requirePage(page);
@@ -296,7 +297,7 @@ async function guardRate(sql, { userId, ipHash }, admin) {
     collected. Everything past that is the same for both. */
 export async function createComment(
   { page, body, parent, user, guest, ip, admin, hp, dwell },
-  env = process.env
+  env = runtimeEnv()
 ) {
   const sql = db(env);
   if (!sql) return { offline: true };
@@ -337,7 +338,7 @@ export async function createComment(
 }
 
 /** Rewrite your own comment. It stays up while you edit it. */
-export async function updateOwnComment({ id, body, user }, env = process.env) {
+export async function updateOwnComment({ id, body, user }, env = runtimeEnv()) {
   const sql = need(env);
   const cleanBody = clean(body, BODY_MAX);
   if (!cleanBody || cleanBody.length > BODY_MAX)
@@ -352,7 +353,7 @@ export async function updateOwnComment({ id, body, user }, env = process.env) {
 
 /* ---------- likes ---------- */
 
-export async function toggleLike(commentId, user, env = process.env) {
+export async function toggleLike(commentId, user, env = runtimeEnv()) {
   const sql = db(env);
   if (!sql) return { offline: true };
   const cid = Number(commentId);
@@ -376,7 +377,7 @@ export async function toggleLike(commentId, user, env = process.env) {
 /* ---------- testimonials ---------- */
 
 /** Approved vouches for one experience page, plus the viewer's own (any state). */
-export async function listTestimonials(page, viewerId, opts = {}, env = process.env) {
+export async function listTestimonials(page, viewerId, opts = {}, env = runtimeEnv()) {
   const sql = db(env);
   if (!sql) return { offline: true };
   requireExpPage(page);
@@ -401,7 +402,7 @@ export async function listTestimonials(page, viewerId, opts = {}, env = process.
     only constrains rows that carry a user_id. */
 export async function saveTestimonial(
   { page, relation, body, user, guest, ip, admin, hp, dwell },
-  env = process.env
+  env = runtimeEnv()
 ) {
   const sql = db(env);
   if (!sql) return { offline: true };
@@ -440,7 +441,7 @@ export async function saveTestimonial(
 
 /* ---------- passport stamps + reading ---------- */
 
-export async function addStamp(user, stamp, env = process.env) {
+export async function addStamp(user, stamp, env = runtimeEnv()) {
   const sql = db(env);
   if (!sql) return { offline: true };
   if (!STAMPS.has(String(stamp || ''))) throw err(400, 'unknown stamp');
@@ -451,7 +452,7 @@ export async function addStamp(user, stamp, env = process.env) {
   return { ok: true };
 }
 
-export async function markRead(user, slug, env = process.env) {
+export async function markRead(user, slug, env = runtimeEnv()) {
   const sql = db(env);
   if (!sql) return { offline: true };
   if (!SLUGS.has(String(slug || ''))) throw err(400, 'unknown note');
@@ -464,7 +465,7 @@ export async function markRead(user, slug, env = process.env) {
 
 /* ---------- the account page, in one round trip ---------- */
 
-export async function accountSummary(user, env = process.env) {
+export async function accountSummary(user, env = runtimeEnv()) {
   const sql = db(env);
   if (!sql) return { offline: true };
   return withSchema(sql, async () => {
@@ -501,7 +502,7 @@ export async function accountSummary(user, env = process.env) {
 }
 
 /** A user deleting their own comment or testimonial from the account page. */
-export async function deleteOwn(kind, id, user, opts = {}, env = process.env) {
+export async function deleteOwn(kind, id, user, opts = {}, env = runtimeEnv()) {
   const sql = need(env);
   const table = kind === 'testimonial' ? 'testimonials' : 'comments';
   const cid = Number(id);
@@ -515,7 +516,7 @@ export async function deleteOwn(kind, id, user, opts = {}, env = process.env) {
 }
 
 /** Take something off the site, or put it back. Owner only, checked upstream. */
-export async function setVisibility(kind, id, showing, env = process.env) {
+export async function setVisibility(kind, id, showing, env = runtimeEnv()) {
   const sql = need(env);
   const table = kind === 'testimonial' ? 'testimonials' : 'comments';
   const rows = await withSchema(sql, () =>
@@ -529,7 +530,7 @@ export async function setVisibility(kind, id, showing, env = process.env) {
 /* ---------- desk terminal history + gate ---------- */
 
 
-export async function chatHistory(user, env = process.env) {
+export async function chatHistory(user, env = runtimeEnv()) {
   const sql = db(env);
   if (!sql) return { history: [] };
   const rows = await withSchema(sql, () => sql`
@@ -540,7 +541,7 @@ export async function chatHistory(user, env = process.env) {
   return { history: rows.map((r) => ({ role: r.role, text: r.body })) };
 }
 
-export async function appendChat(user, userText, modelText, env = process.env) {
+export async function appendChat(user, userText, modelText, env = runtimeEnv()) {
   const sql = db(env);
   if (!sql) return;
   await ensureProfile(user, env);
@@ -559,7 +560,7 @@ export async function appendChat(user, userText, modelText, env = process.env) {
 
 /** Newest approved vouches and top level comments across every page, with
     the profile card fields, for the floating wall on the home page. */
-export async function wallItems(env = process.env) {
+export async function wallItems(env = runtimeEnv()) {
   const sql = db(env);
   if (!sql) return { items: [] };
   return withSchema(sql, async () => {
@@ -592,7 +593,7 @@ export async function wallItems(env = process.env) {
    `recent` to see what people wrote, then `hide` or `delete`. */
 
 /** The newest words on the site, whatever their state. */
-export async function listRecent(limit = 20, env = process.env) {
+export async function listRecent(limit = 20, env = runtimeEnv()) {
   const sql = need(env);
   const n = Math.min(Math.max(Number(limit) || 20, 1), 200);
   return withSchema(sql, async () => {
@@ -612,7 +613,7 @@ export async function listRecent(limit = 20, env = process.env) {
 }
 
 
-export async function listPending(env = process.env) {
+export async function listPending(env = runtimeEnv()) {
   const sql = need(env);
   return withSchema(sql, async () => {
     const comments = await sql`
@@ -629,7 +630,7 @@ export async function listPending(env = process.env) {
   });
 }
 
-export async function moderate(kind, action, id, env = process.env) {
+export async function moderate(kind, action, id, env = runtimeEnv()) {
   const sql = need(env);
   const table = kind === 'testimonial' ? 'testimonials' : 'comments';
   const rows =

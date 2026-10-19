@@ -5,6 +5,7 @@ import '../../styles/comments.css';
 import { mountWall } from '../wall.js';
 import { renderSocials, tagList } from '../render.js';
 import { valueCategories, projects, services, timeline } from '../data.js';
+import { mountOpening, mountOpeningReplay } from '../intro/index.js';
 
 renderSocials();
 
@@ -85,17 +86,25 @@ mountWall(document.querySelector('[data-wall-section]'));
 
 /* chrome behaviors — must run after the dynamic sections are in the DOM,
    so the reveal/counter observers actually see them */
-initSite();
+// The prologue resolves on completion, skip, reduced motion, or asset failure.
+// Defer the second WebGL scene and chrome until the visitor reaches the home.
+mountOpening().then(() => {
+  initSite();
+  mountOpeningReplay();
 
 /* hero 3D — the centerpiece */
-const heroCanvas = document.getElementById('hero-canvas');
-const tipEl = document.getElementById('scene-tip');
-const pinsEl = document.getElementById('hero-pins');
-if (heroCanvas && tipEl && pinsEl && !prefersReducedMotion) {
-  import('../three/heroScene.js').then(({ mountHeroScene }) => {
-    mountHeroScene(heroCanvas, tipEl, pinsEl);
-  });
-} else if (heroCanvas) {
-  heroCanvas.style.display = 'none';
-  document.querySelector('.hero-hint')?.remove();
-}
+  const heroCanvas = document.getElementById('hero-canvas');
+  const tipEl = document.getElementById('scene-tip');
+  const pinsEl = document.getElementById('hero-pins');
+  const showStaticHero = () => {
+    if (heroCanvas) heroCanvas.style.display = 'none';
+    document.querySelector('.hero-hint')?.remove();
+  };
+  if (heroCanvas && tipEl && pinsEl && !prefersReducedMotion) {
+    import('../three/heroScene.js').then(({ mountHeroScene }) => {
+      mountHeroScene(heroCanvas, tipEl, pinsEl);
+    }).catch(showStaticHero);
+  } else {
+    showStaticHero();
+  }
+});

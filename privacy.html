@@ -15,7 +15,9 @@
       function gtag() { dataLayer.push(arguments); }
       if (
         !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) &&
-        !location.hostname.endsWith('.vercel.app')
+        !location.hostname.endsWith('.vercel.app') &&
+        !location.hostname.endsWith('.workers.dev') &&
+        !location.hostname.endsWith('.pages.dev')
       ) {
         var gt = document.createElement('script');
         gt.async = true;
@@ -115,6 +117,7 @@
               </ul>
             </li>
             <li><a class="nav-link" href="/blog">Blog</a></li>
+            <li><a class="nav-link" href="/3d-showcase">3D Showcase</a></li>
           </ul>
         </nav>
         <a class="btn btn--ghost nav-cta" href="https://wa.me/601111267609?text=Nice%20Website.%20I%20want%20to%20know%20more." target="_blank" rel="noopener noreferrer">WhatsApp me</a>
@@ -145,6 +148,7 @@
           </ul>
         </li>
         <li><a class="menu-link" href="/blog"><span class="idx">04</span>Blog</a></li>
+        <li><a class="menu-link" href="/3d-showcase"><span class="idx">05</span>3D Showcase</a></li>
       </ul>
       <div class="menu-foot">
         <a class="btn btn--solid" href="https://wa.me/601111267609" target="_blank" rel="noopener noreferrer" style="flex-basis:100%; justify-content:center">WhatsApp me</a>
@@ -226,7 +230,7 @@
           <p>As account features grow (saved posts, reading progress and similar), the site stores what you deliberately save, tied to your account, and this page is updated to say so.</p>
 
           <h2 id="where">Where it lives</h2>
-          <p>Account and guestbook data is stored with <a href="https://supabase.com" target="_blank" rel="noopener noreferrer">Supabase</a> in Singapore. Visit counts live with Google, under the Google Analytics account for this site. The site itself is hosted by <a href="https://vercel.com" target="_blank" rel="noopener noreferrer">Vercel</a>, which keeps ordinary server logs the way nearly every host does.</p>
+          <p>Account and guestbook data is stored with <a href="https://supabase.com" target="_blank" rel="noopener noreferrer">Supabase</a> in Singapore. Visit counts live with Google, under the Google Analytics account for this site. The site itself is hosted by <a href="https://www.cloudflare.com" target="_blank" rel="noopener noreferrer">Cloudflare</a>, which keeps ordinary server logs the way nearly every host does.</p>
 
           <h2 id="services">The services this site relies on</h2>
           <ul>

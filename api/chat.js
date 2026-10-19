@@ -1,4 +1,4 @@
-// Vercel serverless function: the desk terminal.
+// Shared API handler: the desk terminal.
 //   POST /api/chat { messages } -> { reply }
 //   GET  /api/chat              -> { history } (signed in only)
 // Signed in guests only, by the owner's decision: an anonymous POST gets the
