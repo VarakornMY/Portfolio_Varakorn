@@ -4,6 +4,11 @@ The Vite site and all six `/api/*` handlers deploy together on the existing
 `portfolio-varakorn` Cloudflare Worker. Supabase retains Postgres, sign in and avatar
 storage. Gemini retains chat. No users or database rows need migrating.
 
+Production Git branch: `cloudflare-migration`. Cloudflare builds this branch on push.
+`main` is retained for the previous Vercel deployment. The migration worktree is
+`C:/CODE/1.Varakorn/Varakorn_Portfolio-cloudflare`; commit future deployment changes there.
+The original `Full-3D` working folder remains available with its local edits.
+
 ## Development and deployment
 
 Use Node 22.12 or later. Copy `.env.example` to `.env` with the existing credentials.
@@ -58,10 +63,9 @@ OAuth on a workers.dev preview, add that specific hostname's callback URL to
 Supabase's redirect allowlist. Production OAuth uses the same hostname as before.
 Analytics excludes workers.dev and pages.dev preview traffic.
 
-The `varakorn.me` Cloudflare zone must become active before the custom domain can
-serve traffic. Its assigned nameservers are `amy.ns.cloudflare.com` and
-`giancarlo.ns.cloudflare.com`. Change these at the domain registrar, preserving email
-DNS records. Retain the previous Vercel deployment until domain, TLS, APIs and sign
+The `varakorn.me` Cloudflare zone is active. Its assigned nameservers are `amy.ns.cloudflare.com` and
+`giancarlo.ns.cloudflare.com`. These are configured at Hostinger. Preserve unrelated
+DNS records during future changes. Retain the previous Vercel deployment until domain, TLS, APIs and sign
 in have been verified on Cloudflare.
 
 ## Runtime behavior

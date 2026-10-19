@@ -90,7 +90,7 @@ parallax/spin controllers), `objects.js` (shared torii + camera builders), `hero
 
 Clicking the keyboard on the home diorama (or zooming past the close-up onto it) dives into a
 retro terminal on the monitor. Typing presses the 3D keys, ENTER sends, ESC leaves. Replies come
-from Gemini through `api/chat.js` (a Vercel serverless function) so the key never reaches the
+from Gemini through `api/chat.js` (served by Cloudflare Workers) so the key never reaches the
 browser. The system prompt is generated from `src/js/data.js` (`api/_lib/persona.js`) and is
 hard-scoped: it only answers questions about Varakorn and refuses everything else.
 
