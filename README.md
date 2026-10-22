@@ -33,34 +33,6 @@ npm run preview  # serve the production build
 
 ## Editing content
 
-### Full 3D opening (Full-3D branch)
-
-The home page now starts with an interactive anime prologue: an eye close-up
-follows the cursor and expands into a kneeling character with wrist chains.
-Four escape attempts and screen shake accompany a rise to standing, which
-automatically releases the chains, followed by shattered screen fragments, a staged 404,
-and an automatic handoff to the existing home page. Scroll, swipe, use arrow
-keys, or tap the advance control. Skip and replay controls are included.
-
-Preview it on desktop at `/home?intro=1`. The intro requires a viewport at least
-1024px wide and a primary pointer with fine pointing and hover support. Phones,
-touch tablets and smaller layouts go directly to the home page, with no replay
-button or intro model download, even with `?intro=1`. Resizing an active intro
-into a smaller layout exits it immediately. Desktop visits play once per tab
-session; reduced motion and direct section links also go straight to the content.
-Model and GPU failures recover to the home page.
-
-Replace the licensed sample with your own VRM through
-[`src/js/intro/config.js`](src/js/intro/config.js). Model requirements and the
-included model's license are in [`public/models/README.md`](public/models/README.md).
-The supplied ScrollExpand behavior is adapted to the site's vanilla JavaScript
-architecture; Three.js and `@pixiv/three-vrm` render and animate the character.
-This opening has its own dark palette, metallic chains and glass effects.
-
-Run `npm run check:opening` with the dev server running to verify the entire
-sequence, mobile bypass, keyboard controls, replay, reduced motion and failure
-recovery. Screenshots are saved in `.shots/opening/`.
-
 Everything written lives in [`src/js/data.js`](src/js/data.js) — profile, value categories,
 socials, projects, services, the journey timeline, experience entries, skills, goals, and full
 blog posts.

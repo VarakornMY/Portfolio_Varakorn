@@ -200,7 +200,6 @@ export function createStage(canvas, opts = {}) {
   const resizeCbs = [];
   let inView = true;
   let pageVisible = !document.hidden;
-  let openingActive = document.documentElement.classList.contains('opening-active');
   let running = false;
   let rafId = 0;
 
@@ -233,11 +232,6 @@ export function createStage(canvas, opts = {}) {
     syncLoop();
   });
 
-  window.addEventListener('openingchange', (event) => {
-    openingActive = event.detail.active;
-    syncLoop();
-  });
-
   function tick() {
     rafId = requestAnimationFrame(tick);
     const dt = Math.min(clock.getDelta(), 0.05);
@@ -247,7 +241,7 @@ export function createStage(canvas, opts = {}) {
   }
 
   function syncLoop() {
-    const should = inView && pageVisible && !openingActive;
+    const should = inView && pageVisible;
     if (should && !running) {
       running = true;
       clock.getDelta(); // swallow the pause gap

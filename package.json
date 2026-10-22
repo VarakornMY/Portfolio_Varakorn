@@ -15,14 +15,12 @@
     "check:account": "node scripts/check-account.mjs",
     "check:signin": "node scripts/check-signin-ui.mjs",
     "check:profile": "node scripts/check-profile.mjs",
-    "check:opening": "node scripts/check-opening.mjs",
     "check:showcase": "node scripts/check-showcase.mjs",
     "dev:cloudflare": "npm run build && wrangler dev --remote",
     "deploy:cloudflare": "npm run build && wrangler deploy",
     "check:cloudflare": "node --test scripts/check-cloudflare.test.mjs"
   },
   "dependencies": {
-    "@pixiv/three-vrm": "3.4.2",
     "@supabase/supabase-js": "^2.112.4",
     "postgres": "^3.4.9",
     "three": "^0.172.0"
