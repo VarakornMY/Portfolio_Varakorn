@@ -15,7 +15,6 @@
     "check:account": "node scripts/check-account.mjs",
     "check:signin": "node scripts/check-signin-ui.mjs",
     "check:profile": "node scripts/check-profile.mjs",
-    "check:showcase": "node scripts/check-showcase.mjs",
     "dev:cloudflare": "npm run build && wrangler dev --remote",
     "deploy:cloudflare": "npm run build && wrangler deploy",
     "check:cloudflare": "node --test scripts/check-cloudflare.test.mjs"

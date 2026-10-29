@@ -4,9 +4,9 @@ The Vite site and all six `/api/*` handlers deploy together on the existing
 `portfolio-varakorn` Cloudflare Worker. Supabase retains Postgres, sign in and avatar
 storage. Gemini retains chat. No users or database rows need migrating.
 
-Production Git branch: `cloudflare-migration`. Cloudflare builds this branch on push.
-`main` is retained for the previous Vercel deployment. The migration worktree is
-`C:/CODE/1.Varakorn/Varakorn_Portfolio-cloudflare`; commit future deployment changes there.
+Primary Git branch: `main`. Cloudflare Git builds track `cloudflare-migration`,
+which is kept in sync with `main` for production changes. Manual deployments use
+`npm run deploy:cloudflare` from the same commit.
 The original `Full-3D` working folder remains available with its local edits.
 
 ## Development and deployment
