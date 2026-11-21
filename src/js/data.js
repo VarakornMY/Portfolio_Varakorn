@@ -86,6 +86,14 @@ export const projects = [
       'A personalized AI doctor focused on daily health tracking. Long term data analysis surfaces potential risks before they become critical.',
     stack: ['Python', 'FastAPI', 'React', 'WebSockets'],
   },
+  {
+    index: '04',
+    title: 'Kratos-Sync',
+    kicker: 'Internal business management system',
+    description:
+      'An internal platform for scheduling and managing social media, managing website articles, and keeping customer relationships organized with a built-in CRM. Daily content and business operations, all in one place.',
+    stack: ['Social Media', 'Scheduling', 'Article Management', 'CRM'],
+  },
 ];
 
 export const services = [

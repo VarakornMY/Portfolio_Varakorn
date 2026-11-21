@@ -43,13 +43,13 @@ const check = (ok, label) => {
   if (!ok) fails.push(label);
 };
 
-/* 1. nav shows Sign in on a plain page */
-await p.goto(`${B}/journey`, { waitUntil: 'networkidle' });
+/* 1. Account shows Sign in on a plain page */
+await p.goto(`${B}/account`, { waitUntil: 'networkidle' });
 await p.waitForTimeout(2500);
-check((await p.locator('.acct-signin').count()) === 1, 'nav shows a Sign in button when signed out');
+check((await p.locator('[data-open-auth]').count()) === 1, 'Account shows a Sign in button when signed out');
 
 /* 2. dialog opens, bad password fails politely */
-await p.click('.acct-signin');
+await p.click('[data-open-auth]');
 await p.waitForTimeout(400);
 check(await p.locator('.authdlg.is-open').isVisible(), 'sign in dialog opens');
 check((await p.locator('.ad-google').count()) === 1, 'dialog offers Continue with Google');
@@ -64,8 +64,8 @@ await p.fill('#ad-pass', PASS);
 await p.click('.ad-submit');
 await p.waitForTimeout(2500);
 check(!(await p.locator('.authdlg.is-open').count()) || !(await p.locator('.authdlg.is-open').isVisible()), 'dialog closes after sign in');
-check((await p.locator('.acct-ava').count()) === 1, 'nav shows the avatar when signed in');
-await p.screenshot({ path: '.shots/account/signed-in-nav.png' });
+check((await p.locator('.acct-head-ava').count()) === 1, 'Account shows the avatar when signed in');
+await p.screenshot({ path: '.shots/account/signed-in-account.png' });
 
 /* 4. guestbook + vouch on an experience page */
 await p.goto(`${B}/experience/gamuda-ai-academy`, { waitUntil: 'networkidle' });

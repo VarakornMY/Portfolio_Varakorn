@@ -5,20 +5,19 @@
 // The profile itself lives on the Supabase auth user; /api/me mirrors it onto
 // profiles so existing comments pick up the new name and face.
 // ---------------------------------------------------------------------------
-import '../../styles/main.css';
-import '../../styles/expnav.css';
+
+
 import '../../styles/account.css';
-import { initSite } from '../ui.js';
-import { renderSocials } from '../render.js';
+
+
 import { supa, userOf, onAuth, authedFetch, signOut } from '../supa.js';
 import { openAuthDialog, avatarHtml } from '../authui.js';
 import { askConfirm } from '../confirm.js';
 import { experience, posts } from '../data.js';
 
-renderSocials();
-initSite();
 
-const root = document.querySelector('[data-acct]');
+
+const root = document.querySelector('.retro-window [data-acct]');
 const ENT = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ENT[c]);
 
@@ -50,7 +49,6 @@ function skeletonHtml() {
       <span class="pp-name sk sk-line" style="width:70%">&nbsp;</span>
     </span>`;
   return `
-    <p class="kicker">Your desk drawer</p>
     <h1 class="display" style="font-size: clamp(2.2rem, 6vw, 3.2rem)">Account</h1>
     <div class="acct-head">
       <span class="sk sk-ava"></span>
@@ -66,10 +64,9 @@ function skeletonHtml() {
 
 function gateHtml() {
   return `
-    <p class="kicker">Your desk drawer</p>
     <h1 class="display" style="font-size: clamp(2.2rem, 6vw, 3.2rem)">Account</h1>
     <div class="acct-gate" data-reveal>
-      <p>Sign in to collect passport stamps, leave comments and vouches, and let the desk terminal remember you. New here? Creating an account takes a minute.</p>
+      <p>Sign in to collect passport stamps, leave comments and vouches, and keep your AI Chat history. New here? Creating an account takes a minute.</p>
       <button class="btn btn--solid" type="button" data-open-auth>Sign in / Create account</button>
     </div>
     <p class="note-dim" style="margin-top:2rem">
@@ -107,7 +104,6 @@ function mineHtml(kind, item) {
 
 function render(me, user) {
   root.innerHTML = `
-    <p class="kicker">Your desk drawer</p>
     <h1 class="display" style="font-size: clamp(2.2rem, 6vw, 3.2rem)">Account</h1>
 
     <div class="acct-head">

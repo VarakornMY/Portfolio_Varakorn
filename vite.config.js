@@ -192,7 +192,7 @@ function prerenderForCrawlers() {
           data.timeline
             .map(
               (t) => `
-          <a class="chapter" href="/journey"><span class="chap-chip">${esc(t.chip)}</span><span class="yr">${esc(t.year)}</span><h3>${esc(t.title)}</h3><p>${esc(t.role)}</p></a>`
+          <article class="chapter"><span class="chap-chip">${esc(t.chip)}</span><span class="yr">${esc(t.year)}</span><h3><a href="${esc(t.page || '/journey')}">${esc(t.title)}</a></h3><p>${esc(t.role)}</p><p>${esc(t.story)}</p></article>`
             )
             .join('') + '\n        '
         );

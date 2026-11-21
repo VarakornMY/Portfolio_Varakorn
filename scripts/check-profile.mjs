@@ -23,9 +23,9 @@ const p = await ctx.newPage();
 const errors = [];
 p.on('pageerror', (e) => errors.push(e.message));
 
-await p.goto('http://localhost:5173/journey', { waitUntil: 'networkidle' });
+await p.goto('http://localhost:5173/account', { waitUntil: 'networkidle' });
 await p.waitForTimeout(2500);
-await p.click('.acct-signin');
+await p.click('[data-open-auth]');
 await p.fill('#ad-email', EMAIL);
 await p.fill('#ad-pass', PASS);
 await p.click('.ad-submit');

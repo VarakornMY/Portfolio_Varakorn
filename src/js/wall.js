@@ -7,6 +7,7 @@
 // ---------------------------------------------------------------------------
 import { bindProfileClicks } from './profilecard.js';
 import { askConfirm } from './confirm.js';
+import { authedFetch, getSession } from './supa.js';
 import { experience, posts } from './data.js';
 
 const ENT = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
@@ -200,7 +201,6 @@ function buildCompose() {
 
     // the api client loads only when someone actually tries to post; without a
     // session it simply sends no token, and the name above stands in
-    const { authedFetch } = await import('./supa.js');
     const guestExtras = state.guest
       ? {
           name,
@@ -269,7 +269,6 @@ async function openCompose() {
   el.classList.add('is-open');
   // the sheet opens straight away and adjusts a moment later, rather than
   // making somebody wait on the auth client before they can start writing
-  const { getSession } = await import('./supa.js');
   setComposeGuest(!(await getSession()));
 }
 
@@ -352,7 +351,7 @@ export function mountWall(section) {
         let nextItem = SLOTS;
         let slot = 0;
         setInterval(() => {
-          if (document.hidden) return;
+          if (document.hidden || !section.getClientRects().length) return;
           const r = section.getBoundingClientRect();
           if (r.bottom < 0 || r.top > innerHeight) return; // off screen, save the breath
           const card = wall.children[slot];
@@ -372,5 +371,5 @@ export function mountWall(section) {
         }, 5000);
       }
     })
-    .catch(() => {});
+    .catch(() => { wall.textContent = 'The guestbook could not be loaded. Refresh to try again.'; });
 }

@@ -3,21 +3,22 @@
   "private": true,
   "version": "2.0.0",
   "type": "module",
-  "description": "Varakorn \u2014 aesthetic-first 3D portfolio. Beige, anime 2020, three.js.",
+  "description": "Varakorn portfolio with an XP desktop and a handheld interface.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "comments": "node scripts/comments-db.mjs",
-    "check:mobile": "node scripts/check-mobile-nav.mjs",
+    "check:mobile": "node scripts/check-retro.mjs",
     "check:seo": "node scripts/check-prerender.mjs",
-    "shots": "node scripts/screenshot.mjs",
+    "shots": "node scripts/check-retro.mjs",
     "check:account": "node scripts/check-account.mjs",
     "check:signin": "node scripts/check-signin-ui.mjs",
     "check:profile": "node scripts/check-profile.mjs",
     "dev:cloudflare": "npm run build && wrangler dev --remote",
     "deploy:cloudflare": "npm run build && wrangler deploy",
-    "check:cloudflare": "node --test scripts/check-cloudflare.test.mjs"
+    "check:cloudflare": "node --test scripts/check-cloudflare.test.mjs",
+    "check:retro": "node scripts/check-retro.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4",

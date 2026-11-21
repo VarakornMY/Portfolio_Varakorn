@@ -328,7 +328,7 @@ export function mountTestimonials(host, page) {
     }
   });
 
-  onAuth((session) => {
+  return onAuth((session) => {
     user = userOf(session);
     refresh();
   });

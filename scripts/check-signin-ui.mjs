@@ -25,9 +25,9 @@ const b = await chromium.launch({ channel: 'msedge' });
 /* ---------- the eye ---------- */
 const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } });
 const p = await ctx.newPage();
-await p.goto('http://localhost:5173/journey', { waitUntil: 'networkidle' });
+await p.goto('http://localhost:5173/account', { waitUntil: 'networkidle' });
 await p.waitForTimeout(2500);
-await p.click('.acct-signin');
+await p.click('[data-open-auth]');
 await p.waitForTimeout(400);
 await p.fill('#ad-pass', 'hunter2secret');
 check((await p.getAttribute('#ad-pass', 'type')) === 'password', 'password starts hidden');
@@ -43,7 +43,7 @@ check((await p.getAttribute('#ad-pass', 'type')) === 'password', 'clicking again
 await p.click('[data-eye]');
 await p.click(".ad-close");
 await p.waitForTimeout(300);
-await p.click('.acct-signin');
+await p.click('[data-open-auth]');
 await p.waitForTimeout(300);
 check((await p.getAttribute('#ad-pass', 'type')) === 'password' && (await p.inputValue('#ad-pass')) === '', 'reopening starts clean and hidden');
 check((await p.isChecked('[name="remember"]')), 'keep me signed in is on by default');
@@ -55,16 +55,16 @@ async function run(remember) {
   const dir = mkdtempSync(join(tmpdir(), 'vk-rem-'));
   let c = await chromium.launchPersistentContext(dir, { channel: 'msedge', viewport: { width: 1280, height: 900 } });
   let pg = c.pages()[0] || (await c.newPage());
-  await pg.goto('http://localhost:5173/journey', { waitUntil: 'networkidle' });
+  await pg.goto('http://localhost:5173/account', { waitUntil: 'networkidle' });
   await pg.waitForTimeout(2500);
-  await pg.click('.acct-signin');
+  await pg.click('[data-open-auth]');
   await pg.waitForTimeout(400);
   if (!remember) await pg.uncheck('[name="remember"]');
   await pg.fill('#ad-email', EMAIL);
   await pg.fill('#ad-pass', PASS);
   await pg.click('.ad-submit');
   await pg.waitForTimeout(2600);
-  const inNow = (await pg.locator('.acct-ava').count()) === 1;
+  const inNow = (await pg.locator('.acct-head-ava').count()) === 1;
   const where = await pg.evaluate(() => {
     const has = (s) => { try { return Object.keys(s).some((k) => k.includes('auth-token')); } catch { return false; } };
     return { local: has(localStorage), session: has(sessionStorage) };
@@ -73,9 +73,9 @@ async function run(remember) {
   await c.close();
   c = await chromium.launchPersistentContext(dir, { channel: 'msedge', viewport: { width: 1280, height: 900 } });
   pg = c.pages()[0] || (await c.newPage());
-  await pg.goto('http://localhost:5173/journey', { waitUntil: 'networkidle' });
+  await pg.goto('http://localhost:5173/account', { waitUntil: 'networkidle' });
   await pg.waitForTimeout(3000);
-  const inAfter = (await pg.locator('.acct-ava').count()) === 1;
+  const inAfter = (await pg.locator('.acct-head-ava').count()) === 1;
   await c.close();
   return { inNow, where, inAfter };
 }

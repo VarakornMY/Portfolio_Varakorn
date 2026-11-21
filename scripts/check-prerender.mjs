@@ -2,7 +2,7 @@
 // words in the raw HTML, and hydration must replace that seed cleanly.
 import { chromium } from 'playwright';
 
-const BASE = 'http://localhost:5173';
+const BASE = process.env.PORTFOLIO_PREVIEW_URL || 'http://localhost:5173';
 const fails = [];
 const check = (ok, label) => {
   console.log(`${ok ? '✓' : '✗'} ${label}`);
@@ -46,31 +46,16 @@ const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 
-await page.goto(`${BASE}/blog`, { waitUntil: 'networkidle' });
-await page.waitForTimeout(2500);
-check((await page.locator('.post-card').count()) > 0, '/blog hydrates into post cards');
-check((await page.locator('.post-grid .seed').count()) === 0, '/blog seed markup is replaced');
-
-await page.goto(`${BASE}/experience`, { waitUntil: 'networkidle' });
-await page.waitForTimeout(3000);
-check((await page.locator('.tcard').count()) === 6, '/experience hydrates into 6 trading cards');
-check((await page.locator('[data-cards] .seed').count()) === 0, '/experience seed markup is replaced');
-
-await page.goto(`${BASE}/journey`, { waitUntil: 'networkidle' });
-await page.waitForTimeout(2500);
-check((await page.locator('.t-entry').count()) === 6, '/journey hydrates into 6 chapters');
-
-await page.goto(`${BASE}/home`, { waitUntil: 'networkidle' });
-await page.waitForTimeout(3500);
-check((await page.locator('.proj-row').count()) > 0, '/home hydrates into project rows');
-check((await page.locator('[data-services] .svc').count()) > 0, '/home hydrates into services');
-
-// a deep link still opens the reader on the right post
-await page.goto(`${BASE}/blog#learning-rag-the-hard-way`, { waitUntil: 'networkidle' });
-await page.waitForTimeout(2500);
-const title = await page.locator('.reader .article h1').first().textContent().catch(() => null);
-check(!!title && /RAG/i.test(title), `/blog#slug still opens the reader (${title})`);
-
+await page.route('**/api/**', route => route.fulfill({json: {offline: true, comments: [], items: []}}));
+for (const [path, rows] of [['/experience', 6], ['/journey', 6], ['/home#work', 4]]) {
+  await page.goto(BASE + path);
+  await page.locator('.front .file-list button').first().waitFor();
+  check((await page.locator('.front .file-list button').count()) === rows, path + ' opens its entries');
+  check((await page.locator('#document-source').count()) === 0, path + ' replaces the static document');
+}
+await page.goto(BASE + '/blog#learning-rag-the-hard-way');
+const title = await page.locator('.front .reader h1').textContent();
+check(/RAG/i.test(title), 'Blog deep link opens the requested article');
 await browser.close();
 if (errors.length) {
   console.log('\nconsole/page errors:');

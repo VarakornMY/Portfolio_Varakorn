@@ -459,9 +459,11 @@ export function mountComments(host, page, { title } = {}) {
 
   /* ---------- boot: the shared session drives everything ---------- */
 
+  let disposed = false;
+  let unsubscribe;
   refresh().then((open) => {
-    if (!open) return;
-    onAuth((session) => {
+    if (!open || disposed) return;
+    unsubscribe = onAuth((session) => {
       const next = userOf(session);
       const was = user;
       user = next;
@@ -471,4 +473,5 @@ export function mountComments(host, page, { title } = {}) {
       else renderList();
     });
   });
+  return () => { disposed = true; unsubscribe?.(); };
 }

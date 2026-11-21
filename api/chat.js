@@ -10,7 +10,7 @@ import { userFromRequest } from './_lib/supauth.js';
 import { readBody, sendJson } from './_lib/http.js';
 
 const GATE_REPLY =
-  'This terminal only talks to signed in guests. Use the Sign in button at the top of the page, it takes a minute, and I will remember our conversation.';
+  'Sign in to AI Chat to ask a question and keep your conversation history.';
 
 export default async function handler(req, res) {
   try {
